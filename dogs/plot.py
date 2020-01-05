@@ -4,8 +4,6 @@ import  numpy               as np
 from    dogs                import Utils
 import  scipy.io            as io
 from    matplotlib.ticker   import PercentFormatter
-from    scipy.spatial       import Delaunay
-from    mpl_toolkits.mplot3d import axes3d, Axes3D
 
 
 class PlotClass:
