@@ -33,12 +33,6 @@ from dogs import interpolation
 
 '''
 
-
-#################################### Constant K method ####################################
-# debugging
-# inter_par = self.inter_par
-# xi = xs
-# K = self.K*self.K0
 def tringulation_search_bound_constantK(inter_par, xi, K, ind_min):
     '''
     This function is the core of constant-K continuous search function.

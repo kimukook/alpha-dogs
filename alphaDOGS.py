@@ -20,8 +20,6 @@ from    dogs                import Utils
 from    dogs                import interpolation
 from    dogs                import cartesian_grid
 from    dogs                import constantK
-from    dogs                import lorenz
-from    dogs                import uq
 from    dogs                import plot
 
 
@@ -105,8 +103,8 @@ class AlphaDOGSOptions(OptionsClass):
 
 
 class AlphaDOGS:
-    def __init__(self, bounds, func_eval, noise_eval, truth_eval, A, b, options):
-        '''
+    def __init__(self, bounds, func_eval, noise_eval, truth_eval, options, A=None, b=None):
+        """
         Alpha DOGS is an efficient optimization algorithm for time-averaged statistics.
         :param bounds           :   The physical bounds of the input for the test problem,
                                     e.g. lower bound = [0, 0, 0] while upper bound = [1, 1, 1] then
@@ -123,7 +121,7 @@ class AlphaDOGS:
         :param b                :   The linear constraints of parameter space
 
         :param options          :   The options for alphaDOGS
-        '''
+        """
         # n: The dimension of input parameter space
         self.n = bounds.shape[0]
         # physical lb & ub: Normalize the physical bounds
@@ -158,12 +156,16 @@ class AlphaDOGS:
             self.L = options.get_option('Constant L')
             self.L0 = self.L
             self.K = options.get_option('Constant K')
+
         elif self.surrogate_type == 'a':
             self.y0 = options.get_option('Target value')
 
-        # Define the linear constraints, Ax <= b.
-        self.Ain = A
-        self.Bin = b
+        # Define the linear constraints, Ax <= b. if A and b are None type, set them to be the box domain constraints.
+        if (A and b) is None:
+            self.Ain = np.concatenate((np.identity(self.n), -np.identity(self.n)), axis=0)
+            self.Bin = np.concatenate((np.ones((self.n, 1)), np.zeros((self.n, 1))), axis=0)
+        else:
+            pass
 
         # Define the statistics for time length
         self.T0 = options.get_option('Initial time length')
@@ -180,10 +182,6 @@ class AlphaDOGS:
         else:
             pass
 
-        # Define the initial support points
-        self.xU = Utils.bounds(self.lb, self.ub, self.n)
-        self.yu = None
-
         # Initialize the function evaluation, noise sigma evaluation and truth function evaluation.
         # capsulate those three functions with physical bounds
         self.func_eval = partial(Utils.fun_eval, func_eval, self.physical_lb, self.physical_ub)
@@ -192,7 +190,8 @@ class AlphaDOGS:
 
         # Define the global optimum and its values
         if options.get_option('Global minimizer known'):
-            self.xmin = options.get_option('Global minimizer')
+            self.xmin = Utils.normalize_bounds(options.get_option('Global minimizer'), self.physical_lb,
+                                               self.physical_ub)
             self.y0 = options.get_option('Target value')
         else:
             self.xmin = None
@@ -205,7 +204,7 @@ class AlphaDOGS:
         if options.get_option('Initial sites known'):
             physical_initial_sites = options.get_option('Initial sites')
             # Normalize the bound
-            self.xE = Utils.normalize_bounds(physical_initial_sites, self.lb, self.ub)
+            self.xE = Utils.normalize_bounds(physical_initial_sites, self.physical_lb, self.physical_ub)
         else:
             self.xE = Utils.random_initial(self.n, 2 * self.n, self.ms, self.Ain, self.Bin, self.xU)
 
@@ -222,6 +221,12 @@ class AlphaDOGS:
             for i in range(2 * self.n):
                 self.yE[i] = self.func_eval(self.xE[:, i], self.T[i])
                 self.sigma[i] = self.sigma_eval(self.xE[:, i], self.T0)
+
+        self.iteration_summary_matrix = {}
+        # Define the initial support points
+        self.xU = Utils.bounds(self.lb, self.ub, self.n)
+        self.xU = Utils.unique_support_points(self.xU, self.xE)
+        self.yu = None
 
         self.K0 = np.ptp(self.yE, axis=0)
         # Define the interpolation
@@ -305,6 +310,7 @@ class AlphaDOGS:
                       'is found.')
                 if self.n >= 3:
                     print('Parameter space dimenion > 3, the plot for each iteration is unavailable.')
+
         if self.save_fig and self.func_initial_prior:
             if self.n == 1:
                 self.initial_plot = self.plot.initial_plot1D
@@ -329,11 +335,7 @@ class AlphaDOGS:
         self.plot_folder = os.path.join(self.current_path, 'plot')
         if os.path.exists(self.plot_folder):
             shutil.rmtree(self.plot_folder)
-            os.makedirs(self.plot_folder)
-        elif not os.path.exists(self.plot_folder) and self.save_fig:
-            os.makedirs(self.plot_folder)
-        else:
-            pass
+        os.makedirs(self.plot_folder)
 
     def discrete_function_evaluation(self, x):
         '''
@@ -408,13 +410,12 @@ class AlphaDOGS:
                     self.xc = np.round(xc * self.ms) / self.ms
                     if Utils.mindis(self.xc, self.xE)[0] < 1e-6:
                         break
-                    self.xc, self.xE, self.xU, success, newadd = cartesian_grid.points_neighbers_find(self.xc, self.xE,
+                    self.xE, self.xU, success, newadd = cartesian_grid.points_neighbers_find(self.xc, self.xE,
                                                                                                       self.xU, self.Bin,
                                                                                                       self.Ain)
                     if success == 1:
                         break
                     else:
-                        print('ss')
                         self.yu = np.hstack((self.yu, self.discrete_function_evaluation(self.xc)))
                 if self.xU.shape[1] != 0 and np.amin(self.yu) < np.min(self.yp):
                     xc_discrete = self.discrete_function_evaluation(self.xc)
@@ -429,6 +430,9 @@ class AlphaDOGS:
             self.T[self.index_min_yd] += self.dt
             self.yE[self.index_min_yd] = self.func_eval(self.xd, self.T[self.index_min_yd])
             self.sigma[self.index_min_yd] = self.sigma_eval(self.xd, self.T[self.index_min_yd])
+            self.iteration_summary_matrix[self.iter] = {'x': self.xd, 'y': self.yE[self.index_min_yd],
+                                                        'T': self.T[self.index_min_yd],
+                                                        'sig': self.sigma[self.index_min_yd]}
 
         else:
             if Utils.mindis(self.xc, self.xE)[0] < 1e-6:
@@ -443,74 +447,11 @@ class AlphaDOGS:
                 self.xE = np.hstack((self.xE, self.xc))
                 self.yE = np.hstack((self.yE, self.func_eval(self.xc, self.T0)))
                 self.sigma = np.hstack((self.sigma, self.sigma_eval(self.xc, self.T0)))
+                self.iteration_summary_matrix[self.iter] = {'x': self.xc, 'y': self.yE[-1],
+                                                            'T': self.T0,
+                                                            'sig': self.sigma[-1]}
 
         if self.save_fig:
             self.iter_plot(self)
         if self.iter_summary:
             self.plot.summary_display(self)
-
-
-if __name__ == "__main__":
-    # options setting
-    options = AlphaDOGSOptions()
-    options.set_option('Constant surrogate', True)
-    options.set_option('Scipy solver', True)
-
-    options.set_option('Initial mesh size', 4)
-    options.set_option('Number of mesh refinement', 4)
-    options.set_option('Initial time length', 2.0)
-    options.set_option('Incremental time step', 2.0)
-
-    options.set_option('Initial sites known', False)
-
-    options.set_option('Global minimizer known', True)
-    options.set_option('Target value', -1.6759 * 2)
-    options.set_option('Global minimizer', np.array([[0.8419], [0.8419]]))
-
-    options.set_option('Function evaluation cheap', True)
-    options.set_option('Plot saver', True)
-    options.set_option('Candidate distance summary', True)
-    options.set_option('Candidate objective value summary', True)
-    options.set_option('Iteration summary', True)
-    options.set_option('Optimization summary', True)
-
-    # input parameters setting
-    bnds = np.hstack((np.zeros((2, 1)), np.ones((2, 1))))
-
-    def func_eval(x, t):
-        sigma0 = .3
-        t = int(t)
-        return np.array(np.mean(np.sum(-2 * x * np.sin(np.sqrt(500 * x))) + sigma0 * np.random.normal(0, 1, t)))
-
-    def sigma_eval(x, t):
-        sigma0 = .3
-        return sigma0 / np.sqrt(int(t))
-
-    def truth_eval(x, t):
-        return np.array(np.sum(-2 * x * np.sin(np.sqrt(500 * x))))
-
-    n = 2
-    Ain = np.concatenate((np.identity(n), -np.identity(n)), axis=0)
-    Bin = np.concatenate((np.ones((n, 1)), np.zeros((n, 1))), axis=0)
-
-    adogs = AlphaDOGS(bnds, func_eval, sigma_eval, truth_eval, Ain, Bin, options)
-    adogs.alphadogs_optimizer()
-
-
-    # n = 1
-    # bnds = np.hstack((np.array([[26]]), np.array([[29]])))
-    # func_index = 2
-    # surrogate = 'constant'
-    # solver = 'snopt'
-    # ms = 8
-    # num_mesh = 4
-    # initial = {'type': 'random'}
-    # # For lorenz
-    # T = 50
-    # dT = 160
-    # sig = 0.3
-    # Ain = np.concatenate((np.identity(n), -np.identity(n)), axis=0)
-    # Bin = np.concatenate((np.ones((n, 1)), np.zeros((n, 1))), axis=0)
-    #
-    # adogs = AlphaDOGS(n, bnds, func_index, surrogate, solver, ms, num_mesh, initial, sig, Ain, Bin, T, dT)
-    # adogs.alphadogs_optimizer()

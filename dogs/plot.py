@@ -49,11 +49,6 @@ class PlotClass:
 
         # plot the objective function
         plt.plot(adogs.func_prior_xE, adogs.func_prior_yE, 'k', label=r'$f(x)$')
-        ucb, lcb = adogs.func_prior_yE + 2 * adogs.func_prior_sigma, \
-                   adogs.func_prior_yE - 2 * adogs.func_prior_sigma
-
-        # plot the uncertainty
-        plt.fill_between(adogs.func_prior_xE, ucb, lcb, color='grey', alpha=.3)
 
         plt.grid(color='white')
         plt.legend(loc='lower left')
@@ -100,7 +95,7 @@ class PlotClass:
         ax = fig.add_subplot(1, 1, 1)
         ax.set_facecolor((0.773, 0.769, 0.769))
 
-        if adogs.iter_type =='scmin':
+        if adogs.iter_type == 'scmin':
             plot_xE = np.copy(adogs.xE[:, :-1])
             plot_yE = np.copy(adogs.yE[:-1])
             plot_sigma = np.copy(adogs.sigma[:-1])
@@ -114,13 +109,8 @@ class PlotClass:
 
         # plot the objective function
         plt.plot(adogs.func_prior_xE, adogs.func_prior_yE, 'k')
-        ucb, lcb = adogs.func_prior_yE + 2 * adogs.func_prior_sigma, \
-                   adogs.func_prior_yE - 2 * adogs.func_prior_sigma
 
-        # plot the uncertainty sigma
-        plt.fill_between(adogs.func_prior_xE, ucb, lcb, color='grey', alpha=.3)
-
-        plt.errorbar(plot_xE[0], plot_yE, yerr=plot_sigma, fmt='o', ecolor='b', mec='b', ms=5, mew=8,
+        plt.errorbar(plot_xE[0], plot_yE, yerr=plot_sigma * 3, fmt='o', ecolor='b', mec='b', ms=5, mew=8,
                      label='Error bar', zorder=10)
 
         # plot the continuous search function
@@ -138,11 +128,11 @@ class PlotClass:
         plt.close(fig)
 
     def discrete_search_plot1D(self, adogs):
-        '''
+        """
         Plot the discrete search function.
         Notice that if identifying samling iteration, there is one more points in xE than sd
         :return:
-        '''
+        """
         if adogs.iter_type == 'scmin':
             plt.scatter(adogs.xE[0, :-1], adogs.sd, marker='^', s=15, c='C5', zorder=15, label=r'$S_d(x)$')
         else:
@@ -249,29 +239,43 @@ class PlotClass:
         if adogs.xmin is not None:
             pos_reltv_error = str(np.round(np.linalg.norm(adogs.xmin - adogs.xE[:, np.argmin(adogs.yE)])
                                            / np.linalg.norm(adogs.xmin) * 100, decimals=4)) + '%'
-            val_reltv_error = str(np.round(np.abs(np.min(adogs.yE) - adogs.y0)
-                                           / np.abs(adogs.y0) * 100, decimals=4)) + '%'
-        else:
-            pos_reltv_error = 0
-            val_reltv_error = 0
-
-        if adogs.y0 is not None:
             cur_pos_reltv_err = str(np.round(np.linalg.norm(adogs.xmin - adogs.xE[:, -1])
                                              / np.linalg.norm(adogs.xmin) * 100, decimals=4)) + '%'
+
+        else:
+            pos_reltv_error = 0
+            cur_pos_reltv_err = 0
+
+        if adogs.y0 is not None:
+            val_reltv_error = str(np.round(np.abs(np.min(adogs.yE) - adogs.y0)
+                                           / np.abs(adogs.y0) * 100, decimals=4)) + '%'
             cur_val_reltv_err = str(np.round(np.abs(adogs.yE[-1] - adogs.y0) / np.abs(adogs.y0) * 100,
                                              decimals=4)) + '%'
         else:
-            cur_pos_reltv_err = 0
+            val_reltv_error = 0
             cur_val_reltv_err = 0
 
         if adogs.iter_type == 'sdmin':
             iteration_name = 'Additional sampling'
-        elif adogs.iter_type == 'scmin':
+            x = adogs.xE[:, adogs.index_min_yd]
+            y = np.round(adogs.yE[adogs.index_min_yd], decimals=4)
+            T = adogs.T[adogs.index_min_yd]
+            sig = np.round(adogs.sigma[adogs.index_min_yd], decimals=4)
+
+        elif adogs.iter_type == 'scmin' or adogs.iter_type == 'refine':
             iteration_name = 'Identifying sampling'
-        elif adogs.iter_type == 'refine':
-            iteration_name = 'Mesh refine iteration'
+            x = adogs.xE[:, -1]
+            y = np.round(adogs.yE[-1], decimals=4)
+            T = adogs.T[-1]
+            sig = np.round(adogs.sigma[-1], decimals=4)
+
         else:
+            x = None
+            y = None
+            T = None
+            sig = None
             iteration_name = 'Bug happens!'
+
         print('============================   ', iteration_name, '   ============================')
         print(' %40s ' % 'No. Iteration', ' %30s ' % adogs.iter)
         print(' %40s ' % 'Mesh size', ' %30s ' % adogs.ms)
@@ -279,19 +283,22 @@ class PlotClass:
         print(' %40s ' % 'Target Value', ' %30s ' % adogs.y0)
         print("\n")
         print(' %40s ' % 'Candidate point', ' %30s ' % adogs.xE[:, np.argmin(adogs.yE)])
-        print(' %40s ' % 'Candidate FuncValue', ' %30s ' % np.min(adogs.yE))
+        print(' %40s ' % 'Candidate FuncValue', ' %30s ' % np.round(np.min(adogs.yE), decimals=4))
         print(' %40s ' % 'Candidate FuncTime', ' %30s ' % adogs.T[np.argmin(adogs.yE)])
         print(' %40s ' % 'CandidatePosition RelativeError', ' %30s ' % pos_reltv_error)
         print(' %40s ' % 'CandidateValue RelativeError', ' %30s ' % val_reltv_error)
         print("\n")
-        print(' %40s ' % 'Current point', ' %30s ' % adogs.xE[:, -1])
-        print(' %40s ' % 'Current FuncValue', ' %30s ' % adogs.yE[-1])
-        print(' %40s ' % 'Current FuncTime', ' %30s ' % adogs.T[-1])
-        print(' %40s ' % 'Current Position RelativeError', ' %30s ' % cur_pos_reltv_err)
-        print(' %40s ' % 'Current Value RelativeError', ' %30s ' % cur_val_reltv_err)
-        if not adogs.iter_type == 'refine':
-            print(' %40s ' % 'CurrentEval point', ' %30s ' % adogs.xE[:, -1])
-            print(' %40s ' % 'FuncValue', ' %30s ' % adogs.yE[-1])
+        if adogs.iter_type == 'refine':
+            print(' %40s ' % 'Mesh Refine Trigger', ' %30s ' % 'Mesh Refine Trigger')
+            print(' %40s ' % 'CurrentEval point', ' %30s ' % adogs.xc)
+            print(' %40s ' % 'FuncValue', ' %30s ' % adogs.yc)
+        else:
+            print(' %40s ' % 'Current point', ' %30s ' % x)
+            print(' %40s ' % 'Current FuncValue', ' %30s ' % y)
+            print(' %40s ' % 'Current FuncTime', ' %30s ' % T)
+            print(' %40s ' % 'Current uncertainty', ' %30s ' % sig)
+            print(' %40s ' % 'Current Position RelativeError', ' %30s ' % cur_pos_reltv_err)
+            print(' %40s ' % 'Current Value RelativeError', ' %30s ' % cur_val_reltv_err)
         print("\n")
 
     def summary_plot(self, adogs):
@@ -304,7 +311,7 @@ class PlotClass:
         :param ff:  The number of trial.
         '''
         N = adogs.yE.shape[0]  # number of iteration
-        if adogs.y0 is not None:
+        if adogs.y0 is not None and np.abs(adogs.y0 - 0) > 1e-6:
             yE_best = np.zeros(N)
             yE_reltv_error = np.zeros(N)
             for i in range(N):
@@ -333,9 +340,9 @@ class PlotClass:
             self.fig_saver('Candidate_point', adogs)
             plt.close(fig)
         else:
-            print('Target value y0 is not available, no candidate plot saved.')
+            print('Target value y0 is not available or its 0, no candidate plot saved.')
         ####################   Plot the distance of candidate x to xmin of each iteration  ##################
-        if adogs.xmin is not None:
+        if adogs.xmin is not None and np.abs(adogs.xmin - 0) > 1e-6:
             fig2 = plt.figure()
             plt.grid()
             xE_dis = np.zeros(N)
@@ -349,7 +356,7 @@ class PlotClass:
             self.fig_saver('Distance', adogs)
             plt.close(fig2)
         else:
-            print('Global minimizer xmin is not available, no candidate plot saved.')
+            print('Global minimizer xmin is not available or its 0, no candidate plot saved.')
 
     def result_saver(self, adogs):
         adogs_data = {}
@@ -357,6 +364,7 @@ class PlotClass:
         adogs_data['yE'] = adogs.yE
         adogs_data['sigma'] = adogs.sigma
         adogs_data['T'] = adogs.T
+        adogs_data['iteration_summary'] = adogs.iteration_summary_matrix
         if adogs.inter_par is not None:
             adogs_data['inter_par_method'] = adogs.inter_par.method
             adogs_data['inter_par_w'] = adogs.inter_par.w
@@ -372,4 +380,5 @@ class PlotClass:
         yE = data['yE']
         sigma = data['sigma']
         T = data['T']
-        return xE, yE, sigma, T
+        iteration_summary_matrix = data['iteration_summary']
+        return xE, yE, sigma, T, iteration_summary_matrix

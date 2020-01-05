@@ -50,6 +50,25 @@ def bounds(bnd1, bnd2, n):
     return bnds
 
 
+def unique_support_points(xU, xE):
+    """
+    This function deletes the the elements from xU that is repeated in xE.
+    :param xU:  Support points.
+    :param xE:  Evaluated points.
+    :return:
+    """
+    i = 0
+    size = xU.shape[1]
+    while i < size:
+        if mindis(xU[:, i], xE)[0] < 1e-10:
+            xU = np.delete(xU, i, 1)
+            i = max(i-1, 0)
+            size -= 1
+        else:
+            i += 1
+    return xU
+
+
 def mindis(x, xi):
     """
     calculates the minimum distance from all the existing points

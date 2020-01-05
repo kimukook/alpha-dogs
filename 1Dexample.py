@@ -3,7 +3,7 @@ import numpy as np
 
 options = AlphaDOGSOptions()
 options.set_option('Constant surrogate', True)
-options.set_option('Constant K', 10.0)
+options.set_option('Constant K', 20.0)
 options.set_option('Scipy solver', True)
 
 options.set_option('Initial mesh size', 3)
@@ -12,7 +12,7 @@ options.set_option('Initial time length', 10.0)
 options.set_option('Incremental time step', 10.0)
 
 options.set_option('Initial sites known', True)
-initial_sites = np.array([[0.5, 0.875]])
+initial_sites = np.array([[0, 1]])
 options.set_option('Initial sites', initial_sites)
 
 options.set_option('Global minimizer known', True)
@@ -49,5 +49,5 @@ def truth_eval(x, t):
     return np.array(np.sum(-2 * x * np.sin(np.sqrt(500 * x))))
 
 
-adogs = AlphaDOGS(bnds, func_eval, sigma_eval, truth_eval, Ain, Bin, options)
+adogs = AlphaDOGS(bnds, func_eval, sigma_eval, truth_eval, options, Ain, bin)
 adogs.alphadogs_optimizer()

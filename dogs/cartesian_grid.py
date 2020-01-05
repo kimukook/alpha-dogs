@@ -5,13 +5,15 @@ Created on Tue Oct 31 15:43:14 2017
 
 @author: mousse
 """
-import  numpy   as np
-from    dogs    import Utils
+import numpy   as np
+from dogs import Utils
 
 '''
  cartesian_grid.py file contains the active constraints and inactive constraints idea from DeltaDOGS(Omega_Z)
- 
+
 '''
+
+
 ############################### Cartesian Lattice functions ######################
 
 
@@ -30,7 +32,7 @@ def add_sup(xE, xU, ind_min):
     for x in xs.T:
         dis, _, _ = Utils.mindis(x.reshape(-1, 1), x_unique)
         if dis > 1e-5:
-            x_unique = np.hstack(( x_unique, x.reshape(-1, 1) ))
+            x_unique = np.hstack((x_unique, x.reshape(-1, 1)))
     # Find the minimum point's index: ind_min
     _, ind_min_new, _ = Utils.mindis(xmin.reshape(-1, 1), x_unique)
     return x_unique, ind_min_new
@@ -60,9 +62,8 @@ def points_neighbers_find(x, xE, xU, Bin, Ain):
     :param x: Minimizer of continuous search function.
     :param xE: Evaluated points.
     :param xU: Support points.
-    :return: x, xE is unchanged. 
-                If success == 1: active constraint, evaluate x.
-                Else: Add x to xU.
+    :return: success:   If success == 1: active constraint, else: Add x to xU.
+             newadd:    x already exists in xU or no
     '''
     x = x.reshape(-1, 1)
     x1 = Utils.mindis(x, np.concatenate((xE, xU), axis=1))[2].reshape(-1, 1)
@@ -71,27 +72,27 @@ def points_neighbers_find(x, xE, xU, Bin, Ain):
     for i in range(len(b)):
         if b[i][0] < 1e-3:
             active_cons.append(i + 1)
-    active_cons = np.array(active_cons)
 
     active_cons1 = []
     b = Bin - np.dot(Ain, x1)
     for i in range(len(b)):
         if b[i][0] < 1e-3:
             active_cons1.append(i + 1)
-    active_cons1 = np.array(active_cons1)
-    # Explain the following two criterias，both are actived constraints:
-    # The first means that x is an interior point.
+    # Explain the following two criterion，both are activated constraints:
+    # The first means that x is an interior point, no constraint is activated.
     # The second means that x and x1 have exactly the same constraints.
-    if len(active_cons) == 0 or abs(min(ismember(active_cons, active_cons1)) - 1.0) < 1e-6:
-        newadd = 1
+    if len(active_cons) == 0 or active_cons == active_cons1:
         success = 1
-        if xU.shape[1] != 0 and Utils.mindis(x, xU)[0] == 0:
-            newadd = 0  # Point x Already exists in support points xU, x should be evaluated.
     else:
         success = 0
-        newadd = 0
         xU = np.hstack((xU, x))
-    return x, xE, xU, success, newadd
+
+    if xU.shape[1] != 0 and Utils.mindis(x, xU)[0] < 1e-6:
+        # Point x Already exists in support points xU.
+        newadd = 0
+    else:
+        newadd = 1
+    return xE, xU, success, newadd
 
 
 def check_activated(x, xE, xU, Bin, Ain):
@@ -104,7 +105,7 @@ def check_activated(x, xE, xU, Bin, Ain):
     # Find closest point to x
     del_general, index, x1 = Utils.mindis(x, xs)
     # Calculate the active constraints at x and x1
-    ind = np.where(np.dot(Ain, x) - Bin > -1e-4 )[0]
+    ind = np.where(np.dot(Ain, x) - Bin > -1e-4)[0]
     ind1 = np.where(np.dot(Ain, x1) - Bin > -1e-4)[0]
     if len(ind) == 0 or min(ismember(ind, ind1)) == 1:
         label = 1

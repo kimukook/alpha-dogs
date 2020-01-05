@@ -47,5 +47,5 @@ n = 2
 Ain = np.concatenate((np.identity(n), -np.identity(n)), axis=0)
 Bin = np.concatenate((np.ones((n, 1)), np.zeros((n, 1))), axis=0)
 
-adogs = AlphaDOGS(bnds, func_eval, sigma_eval, truth_eval, Ain, Bin, options)
+adogs = AlphaDOGS(bnds, func_eval, sigma_eval, truth_eval, options, Ain, Bin)
 adogs.alphadogs_optimizer()
