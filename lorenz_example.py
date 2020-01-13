@@ -98,6 +98,7 @@ if __name__ == '__main__':
     options.set_option('Number of mesh refinement', 2)
     options.set_option('Initial time length', 100.0)
     options.set_option('Incremental time step', 50.0)
+    options.set_option('Maximum evaluation times', 12.0)
 
     options.set_option('Function evaluation cheap', False)
     options.set_option('Plot saver', False)

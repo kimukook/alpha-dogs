@@ -87,6 +87,7 @@ class AlphaDOGSOptions(OptionsClass):
             'Initial funtion noise'             : [None, None, np.ndarray],
             'Initial time length'               : [10.0, 10.0, float],
             'Incremental time step'             : [10.0, 10.0, float],
+            'Maximum evaluation times'          : [20.0, 20.0, float],
 
             'Global minimizer known'            : [False, False, bool],
             'Global minimizer'                  : [None, None, np.ndarray],
@@ -170,6 +171,9 @@ class AlphaDOGS:
         # Define the statistics for time length
         self.T0 = options.get_option('Initial time length')
         self.dt = options.get_option('Incremental time step')
+        self.eval_times = options.get_option('Maximum evaluation times')
+        self.Tmax = self.T0 + self.eval_times * self.dt
+        self.Tmax_reached = None
 
         if options.get_option('Scipy solver') and options.get_option('Snopt solver'):
             raise ValueError('More than one optimization solver specified!')
@@ -357,11 +361,12 @@ class AlphaDOGS:
                 else:
                     pass
 
-                if self.iter_type == 'refine':
+                if self.iter_type == 'refine' or self.Tmax_reached:
                     self.iter_type = None
                     break
                 else:
                     pass
+
         if self.optm_summary:
             self.plot.summary_plot(self)
         self.plot.result_saver(self)
@@ -430,9 +435,17 @@ class AlphaDOGS:
             self.T[self.index_min_yd] += self.dt
             self.yE[self.index_min_yd] = self.func_eval(self.xd, self.T[self.index_min_yd])
             self.sigma[self.index_min_yd] = self.sigma_eval(self.xd, self.T[self.index_min_yd])
-            self.iteration_summary_matrix[self.iter] = {'x': self.xd, 'y': self.yE[self.index_min_yd],
+            self.iteration_summary_matrix[self.iter] = {'x': self.xd.tolist(), 'y': self.yE[self.index_min_yd],
                                                         'T': self.T[self.index_min_yd],
                                                         'sig': self.sigma[self.index_min_yd]}
+            if self.T[self.index_min_yd] >= self.Tmax:
+                # Function evaluation has reached the limit, refine the mesh
+                # TODO refine the mesh here??????
+                # tODO or, directly goes to eval xc min?
+                # TODO cuz xcmin is the initial evaluation, not expensive
+                self.Tmax_reached = True
+            else:
+                self.Tmax_reached = False
 
         else:
             if Utils.mindis(self.xc, self.xE)[0] < 1e-6:
@@ -447,7 +460,7 @@ class AlphaDOGS:
                 self.xE = np.hstack((self.xE, self.xc))
                 self.yE = np.hstack((self.yE, self.func_eval(self.xc, self.T0)))
                 self.sigma = np.hstack((self.sigma, self.sigma_eval(self.xc, self.T0)))
-                self.iteration_summary_matrix[self.iter] = {'x': self.xc, 'y': self.yE[-1],
+                self.iteration_summary_matrix[self.iter] = {'x': self.xc.tolist(), 'y': self.yE[-1],
                                                             'T': self.T0,
                                                             'sig': self.sigma[-1]}
 

@@ -1,4 +1,5 @@
 import  os
+import  json
 import  matplotlib.pyplot   as plt
 import  numpy               as np
 from    dogs                import Utils
@@ -102,8 +103,6 @@ class PlotClass:
             plot_xE = np.copy(adogs.xE)
             plot_yE = np.copy(adogs.yE)
             plot_sigma = np.copy(adogs.sigma)
-            val, idx, xmin = Utils.mindis(adogs.func_prior_xE, adogs.xE[:, -1])
-            adogs.func_prior_sigma[idx] = adogs.sigma[-1]
 
         # plot the objective function
         plt.plot(adogs.func_prior_xE, adogs.func_prior_yE, 'k')
@@ -357,12 +356,12 @@ class PlotClass:
             print('Global minimizer xmin is not available or its 0, no candidate plot saved.')
 
     def result_saver(self, adogs):
+        # data saving
         adogs_data = {}
         adogs_data['xE'] = adogs.xE
         adogs_data['yE'] = adogs.yE
         adogs_data['sigma'] = adogs.sigma
         adogs_data['T'] = adogs.T
-        adogs_data['iteration_summary'] = adogs.iteration_summary_matrix
         if adogs.inter_par is not None:
             adogs_data['inter_par_method'] = adogs.inter_par.method
             adogs_data['inter_par_w'] = adogs.inter_par.w
@@ -371,12 +370,7 @@ class PlotClass:
         name = os.path.join(adogs.plot_folder, 'data.mat')
         io.savemat(name, adogs_data)
 
-    @staticmethod
-    def result_reader(name):
-        data = io.loadmat(name)
-        xE = data['xE']
-        yE = data['yE']
-        sigma = data['sigma']
-        T = data['T']
-        iteration_summary_matrix = data['iteration_summary']
-        return xE, yE, sigma, T, iteration_summary_matrix
+        # iteration summary saving
+        iter_name = os.path.join(adogs.plot_folder, 'iter_data.json')
+        with open(iter_name, 'w') as fp:
+            json.dump(adogs.iteration_summary_matrix, fp)
